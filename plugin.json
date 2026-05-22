@@ -1,0 +1,14 @@
+{
+    "id": "cloud_loader",
+    "name": "Cloud Library (Google Drive)",
+    "version": "0.1.0",
+    "routes": "routes.py",
+    "script": "screen.js",
+    "settings": {
+        "html": "settings.html",
+        "server_files": ["cloud_loader/config.json"]
+    },
+    "diagnostics": {
+        "callable": "diagnostics:collect"
+    }
+}

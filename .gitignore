@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# OAuth secrets — never commit
+client_secret.json
+token.json
+
+# Plugin runtime state (lives in $CONFIG_DIR but listed here as safety net)
+config.json
+index.db
+index.db-shm
+index.db-wal
+plugin.log
+scratch/

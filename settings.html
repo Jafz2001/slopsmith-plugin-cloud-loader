@@ -1,0 +1,358 @@
+<div role="group" aria-labelledby="cl-heading">
+    <h3 id="cl-heading" class="text-sm font-medium text-gray-400 mb-2">Cloud Library — Google Drive</h3>
+    <p class="text-xs text-gray-500 mb-3">
+        Store your .psarc / .sloppak library in Google Drive and stream songs on demand.
+        The library browser shows everything; songs download only when you press Play, and
+        local copies are removed afterwards. New files created by other plugins (sloppak
+        converter, retune, etc.) are auto-uploaded.
+    </p>
+
+    <!-- Status pill -->
+    <div id="cl-status-pill" class="text-xs px-2 py-1 rounded inline-block mb-4 bg-gray-700 text-gray-300">
+        Loading...
+    </div>
+
+    <!-- Step 1: OAuth client_secret -->
+    <details class="mb-4 border border-gray-800 rounded-lg" id="cl-step-secret">
+        <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-gray-300 select-none">
+            1. OAuth client credentials
+        </summary>
+        <div class="px-3 py-3 border-t border-gray-800">
+            <p class="text-xs text-gray-500 mb-2">
+                Create an OAuth 2.0 Client ID of type "Desktop app" in
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank"
+                   class="text-blue-400 underline">Google Cloud Console</a>,
+                enable the Google Drive API for the project, and upload the JSON here.
+            </p>
+            <input type="file" id="cl-secret-file" accept="application/json,.json"
+                   class="text-xs text-gray-300 mb-2 block">
+            <button id="cl-secret-upload"
+                    class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded">
+                Upload client_secret.json
+            </button>
+            <div id="cl-secret-msg" class="text-xs mt-2"></div>
+        </div>
+    </details>
+
+    <!-- Step 2: Connect -->
+    <details class="mb-4 border border-gray-800 rounded-lg" id="cl-step-auth">
+        <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-gray-300 select-none">
+            2. Connect to Google Drive
+        </summary>
+        <div class="px-3 py-3 border-t border-gray-800">
+            <p class="text-xs text-gray-500 mb-2">
+                Opens a browser window for Google sign-in. Token is stored locally and
+                used to access Drive on subsequent runs.
+            </p>
+            <button id="cl-connect"
+                    class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded">
+                Connect Google Drive
+            </button>
+            <button id="cl-disconnect"
+                    class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1 rounded ml-2">
+                Disconnect
+            </button>
+            <div id="cl-auth-msg" class="text-xs mt-2"></div>
+        </div>
+    </details>
+
+    <!-- Step 3: Root folder -->
+    <details class="mb-4 border border-gray-800 rounded-lg" id="cl-step-folder">
+        <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-gray-300 select-none">
+            3. Root folder on Drive
+        </summary>
+        <div class="px-3 py-3 border-t border-gray-800">
+            <p class="text-xs text-gray-500 mb-2">
+                The folder containing your .psarc / .sloppak files (searched recursively).
+            </p>
+            <div id="cl-folder-current" class="text-xs text-gray-300 mb-2"></div>
+            <div class="flex gap-2 items-center mb-2">
+                <button id="cl-folder-browse"
+                        class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded">
+                    Browse...
+                </button>
+                <input type="text" id="cl-folder-id" placeholder="Or paste a Drive folder ID"
+                       class="flex-1 bg-dark-700 border border-gray-800 rounded px-2 py-1 text-xs text-gray-300">
+                <button id="cl-folder-set"
+                        class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1 rounded">
+                    Set
+                </button>
+            </div>
+            <div id="cl-folder-list" class="text-xs text-gray-400 max-h-48 overflow-y-auto"></div>
+        </div>
+    </details>
+
+    <!-- Step 4: Local cache dir -->
+    <details class="mb-4 border border-gray-800 rounded-lg" id="cl-step-dlc">
+        <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-gray-300 select-none">
+            4. Local cache directory
+        </summary>
+        <div class="px-3 py-3 border-t border-gray-800">
+            <p class="text-xs text-gray-500 mb-2">
+                Where downloaded songs land temporarily. Defaults to your DLC Folder
+                (Settings → Library) — leave empty to use that. Files are removed after
+                the next song plays.
+            </p>
+            <div class="flex gap-2">
+                <input type="text" id="cl-dlc-dir" placeholder="(uses DLC Folder)"
+                       class="flex-1 bg-dark-700 border border-gray-800 rounded px-2 py-1 text-xs text-gray-300">
+                <button id="cl-dlc-set"
+                        class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1 rounded">
+                    Save
+                </button>
+            </div>
+        </div>
+    </details>
+
+    <!-- Step 5: Scan -->
+    <details class="mb-4 border border-gray-800 rounded-lg" open id="cl-step-scan">
+        <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-gray-300 select-none">
+            5. Library scan
+        </summary>
+        <div class="px-3 py-3 border-t border-gray-800">
+            <p class="text-xs text-gray-500 mb-2">
+                Downloads each song once to extract metadata, then deletes it. Subsequent
+                runs only re-process new/changed files.
+            </p>
+            <button id="cl-scan"
+                    class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded">
+                Start scan
+            </button>
+            <div id="cl-scan-progress" class="text-xs mt-3 text-gray-300"></div>
+            <div class="mt-2 bg-dark-700 rounded-full h-1.5 overflow-hidden">
+                <div id="cl-scan-bar" class="bg-blue-500 h-full" style="width:0%"></div>
+            </div>
+        </div>
+    </details>
+
+    <!-- Status detail -->
+    <div class="text-xs text-gray-500 mt-4 border-t border-gray-800 pt-3">
+        <div>Indexed songs: <span id="cl-stat-count" class="text-gray-300">—</span></div>
+        <div>Watcher: <span id="cl-stat-watcher" class="text-gray-300">—</span></div>
+        <div id="cl-stat-inflight" class="text-yellow-400 mt-1"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    const API = '/api/cloud_loader';
+
+    const $ = (id) => document.getElementById(id);
+    const pill = $('cl-status-pill');
+    const setPill = (txt, cls) => {
+        pill.textContent = txt;
+        pill.className = 'text-xs px-2 py-1 rounded inline-block mb-4 ' + cls;
+    };
+
+    async function getJSON(url, opts) {
+        const r = await fetch(url, opts);
+        if (!r.ok) throw new Error(`${url} → ${r.status}`);
+        return r.json();
+    }
+
+    async function refreshStatus() {
+        let s;
+        try { s = await getJSON(`${API}/status`); }
+        catch (e) { setPill('Server error', 'bg-red-900 text-red-200'); return; }
+
+        if (!s.has_client_secret) {
+            setPill('Step 1: Upload client_secret.json', 'bg-gray-700 text-gray-300');
+        } else if (!s.authenticated) {
+            setPill('Step 2: Connect Google Drive', 'bg-gray-700 text-gray-300');
+        } else if (!s.root_folder_id) {
+            setPill('Step 3: Pick a root folder', 'bg-gray-700 text-gray-300');
+        } else if (s.remote_count === 0 && !s.bootstrap.running) {
+            setPill('Step 5: Run library scan', 'bg-yellow-900 text-yellow-200');
+        } else {
+            setPill(`Connected · ${s.remote_count} songs indexed`, 'bg-green-900 text-green-200');
+        }
+
+        $('cl-folder-current').textContent = s.root_folder_name
+            ? `Current: ${s.root_folder_name} (${s.root_folder_id})`
+            : (s.root_folder_id ? `Current ID: ${s.root_folder_id}` : '(none)');
+        $('cl-dlc-dir').value = s.dlc_dir || '';
+        $('cl-stat-count').textContent = s.remote_count;
+        $('cl-stat-watcher').textContent = s.watcher.running ? 'running' : 'stopped';
+        $('cl-stat-inflight').textContent = s.watcher.in_flight
+            ? `Uploading: ${s.watcher.in_flight}` : '';
+
+        // Scan progress / error
+        const b = s.bootstrap;
+        const sp = $('cl-scan-progress');
+        if (b.running) {
+            const pct = b.total ? Math.round(100 * b.done / b.total) : 0;
+            sp.textContent = `Scanning... ${b.done}/${b.total}${b.current ? ' — ' + b.current : ''}`;
+            sp.className = 'text-xs mt-3 text-gray-300';
+            $('cl-scan-bar').style.width = pct + '%';
+        } else if (b.error) {
+            sp.textContent = `Failed: ${b.error}`;
+            sp.className = 'text-xs mt-3 text-red-400';
+            $('cl-scan-bar').style.width = '0%';
+        } else if (b.total) {
+            const pct = Math.round(100 * b.done / b.total);
+            sp.textContent = `Done: ${b.done}/${b.total} (${b.skipped} cached)`;
+            sp.className = 'text-xs mt-3 text-green-400';
+            $('cl-scan-bar').style.width = pct + '%';
+        }
+    }
+
+    // ---- step 1: upload client_secret ----
+    $('cl-secret-upload').addEventListener('click', async () => {
+        const f = $('cl-secret-file').files[0];
+        if (!f) { $('cl-secret-msg').textContent = 'Pick a file first.'; return; }
+        const fd = new FormData(); fd.append('file', f);
+        try {
+            await getJSON(`${API}/client-secret`, { method: 'POST', body: fd });
+            $('cl-secret-msg').textContent = 'Uploaded.';
+            $('cl-secret-msg').className = 'text-xs mt-2 text-green-400';
+        } catch (e) {
+            $('cl-secret-msg').textContent = 'Failed: ' + e.message;
+            $('cl-secret-msg').className = 'text-xs mt-2 text-red-400';
+        }
+        refreshStatus();
+    });
+
+    // ---- step 2: connect ----
+    $('cl-connect').addEventListener('click', async () => {
+        $('cl-auth-msg').textContent = 'Opening browser for sign-in...';
+        $('cl-auth-msg').className = 'text-xs mt-2 text-gray-400';
+        try { await fetch(`${API}/auth/start`, { method: 'POST' }); }
+        catch (e) { $('cl-auth-msg').textContent = 'Failed to start: ' + e.message; return; }
+        // Poll until OAuth flow completes.
+        const interval = setInterval(async () => {
+            try {
+                const st = await getJSON(`${API}/auth/poll`);
+                if (st.state === 'ok') {
+                    clearInterval(interval);
+                    $('cl-auth-msg').textContent = 'Connected.';
+                    $('cl-auth-msg').className = 'text-xs mt-2 text-green-400';
+                    refreshStatus();
+                } else if (st.state === 'error') {
+                    clearInterval(interval);
+                    $('cl-auth-msg').textContent = 'Failed: ' + (st.error || 'unknown');
+                    $('cl-auth-msg').className = 'text-xs mt-2 text-red-400';
+                }
+            } catch (e) { /* keep polling */ }
+        }, 1000);
+    });
+
+    $('cl-disconnect').addEventListener('click', async () => {
+        if (!confirm('Disconnect from Google Drive? Library scan results are kept locally.')) return;
+        await fetch(`${API}/disconnect`, { method: 'POST' });
+        refreshStatus();
+    });
+
+    // ---- step 3: folder picker ----
+    // The picker starts at a synthetic "Drive roots" level that includes My
+    // Drive, "Shared with me", and any Shared Drives the user belongs to.
+    // From there each entry behaves like a regular folder.
+    const ROOTS_NODE = { id: '__roots__', name: 'Drive roots' };
+    let folderStack = [ROOTS_NODE];
+
+    async function fetchRoots() {
+        const roots = [{ id: 'root', name: 'My Drive', kind: 'mydrive' }];
+        try {
+            const r = await getJSON(`${API}/shared-with-me`);
+            for (const f of r.folders) roots.push({ ...f, kind: 'shared-with-me' });
+        } catch (e) { /* ok */ }
+        try {
+            const r = await getJSON(`${API}/shared-drives`);
+            for (const d of r.drives) roots.push({ ...d, kind: 'shared-drive' });
+        } catch (e) { /* ok */ }
+        return roots;
+    }
+
+    const KIND_ICON = {
+        'mydrive': '🏠',
+        'shared-with-me': '👥',
+        'shared-drive': '🏢',
+    };
+
+    async function renderFolders() {
+        const cur = folderStack[folderStack.length - 1];
+        const breadcrumb = folderStack.map((f, i) =>
+            `<span class="cursor-pointer underline text-blue-400" data-idx="${i}">${f.name}</span>`
+        ).join(' / ');
+
+        try {
+            let entries;
+            if (cur.id === '__roots__') {
+                entries = await fetchRoots();
+            } else {
+                const r = await getJSON(`${API}/folders?parent=${encodeURIComponent(cur.id)}`);
+                entries = r.folders.map(f => ({ ...f, kind: 'subfolder' }));
+            }
+
+            const list = entries.map(f => {
+                const icon = KIND_ICON[f.kind] || '📁';
+                return `<div class="py-1 flex justify-between items-center hover:bg-dark-700 px-2 rounded">
+                    <span class="cursor-pointer flex-1" data-folder-id="${f.id}" data-folder-name="${encodeURIComponent(f.name)}">${icon} ${f.name}</span>
+                    <button class="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded" data-pick-id="${f.id}" data-pick-name="${encodeURIComponent(f.name)}">Pick</button>
+                </div>`;
+            }).join('');
+
+            $('cl-folder-list').innerHTML =
+                `<div class="text-gray-500 mb-1">${breadcrumb}</div>${list || '<div class="text-gray-500 italic">(empty)</div>'}`;
+
+            $('cl-folder-list').querySelectorAll('[data-folder-id]').forEach(el => {
+                el.addEventListener('click', () => {
+                    folderStack.push({ id: el.dataset.folderId, name: decodeURIComponent(el.dataset.folderName) });
+                    renderFolders();
+                });
+            });
+            $('cl-folder-list').querySelectorAll('[data-idx]').forEach(el => {
+                el.addEventListener('click', () => {
+                    folderStack = folderStack.slice(0, +el.dataset.idx + 1);
+                    renderFolders();
+                });
+            });
+            $('cl-folder-list').querySelectorAll('[data-pick-id]').forEach(el => {
+                el.addEventListener('click', async () => {
+                    await fetch(`${API}/config`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            root_folder_id: el.dataset.pickId,
+                            root_folder_name: decodeURIComponent(el.dataset.pickName),
+                        }),
+                    });
+                    refreshStatus();
+                });
+            });
+        } catch (e) {
+            $('cl-folder-list').textContent = 'Failed to list: ' + e.message;
+        }
+    }
+    $('cl-folder-browse').addEventListener('click', () => {
+        folderStack = [ROOTS_NODE];
+        renderFolders();
+    });
+    $('cl-folder-set').addEventListener('click', async () => {
+        const id = $('cl-folder-id').value.trim();
+        if (!id) return;
+        await fetch(`${API}/config`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ root_folder_id: id, root_folder_name: '(by ID)' }),
+        });
+        refreshStatus();
+    });
+
+    // ---- step 4: dlc dir ----
+    $('cl-dlc-set').addEventListener('click', async () => {
+        await fetch(`${API}/config`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dlc_dir: $('cl-dlc-dir').value.trim() }),
+        });
+        refreshStatus();
+    });
+
+    // ---- step 5: scan ----
+    $('cl-scan').addEventListener('click', async () => {
+        await fetch(`${API}/scan`, { method: 'POST' });
+        refreshStatus();
+    });
+
+    refreshStatus();
+    setInterval(refreshStatus, 2000);
+})();
+</script>
