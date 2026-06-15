@@ -96,6 +96,10 @@
             <div class="flex gap-2">
                 <input type="text" id="cl-dlc-dir" placeholder="(uses DLC Folder)"
                        class="flex-1 bg-dark-700 border border-gray-800 rounded px-2 py-1 text-xs text-gray-300">
+                <button id="cl-dlc-browse"
+                        class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1 rounded">
+                    Browse...
+                </button>
                 <button id="cl-dlc-set"
                         class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1 rounded">
                     Save
@@ -338,6 +342,20 @@
     });
 
     // ---- step 4: dlc dir ----
+    $('cl-dlc-browse').addEventListener('click', async () => {
+        const host = window.slopsmithDesktop;
+        if (!host || typeof host.pickDirectory !== 'function') {
+            alert('Folder picker not available — type the path manually.');
+            return;
+        }
+        try {
+            const picked = await host.pickDirectory();
+            const dir = Array.isArray(picked) ? picked[0] : picked;
+            if (dir) $('cl-dlc-dir').value = dir;  // click Save to persist
+        } catch (e) {
+            alert('Pick failed: ' + (e.message || e));
+        }
+    });
     $('cl-dlc-set').addEventListener('click', async () => {
         await fetch(`${API}/config`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
