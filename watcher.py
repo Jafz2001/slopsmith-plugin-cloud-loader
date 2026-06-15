@@ -125,7 +125,7 @@ class UploadWatcher:
             return
 
         # 3) Never upload a file that's only a small fraction of what Drive
-        # has. PSARCs and sloppaks have minimum useful sizes (≈100 KB);
+        # has. sloppaks have a minimum useful size (≈100 KB);
         # anything tiny is almost certainly a corrupt local file.
         if size < 1024:
             log.warning("watcher skip: %s is suspiciously small (%d bytes)",

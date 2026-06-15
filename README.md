@@ -1,6 +1,6 @@
 # cloud_loader — Google Drive backend for the Slopsmith library
 
-Stream your `.psarc` / `.sloppak` library from Google Drive instead of
+Stream your `.sloppak` library from Google Drive instead of
 keeping everything on local disk. Metadata is indexed once; song files
 download on Play and are removed after the next Play. New files created
 by other plugins (sloppak converter, retune) are auto-uploaded.
@@ -73,17 +73,16 @@ dedicated Google account for the plugin.
 | `$CONFIG_DIR/cloud_loader/token.json` | OAuth refresh token (sensitive) |
 | `$CONFIG_DIR/cloud_loader/config.json` | Root folder id, dlc dir |
 | `$CONFIG_DIR/cloud_loader/index.db` | SQLite index of remote files + local state |
-| `<dlc_dir>/<song>.psarc` | Transient — present only between Play and the next Play |
+| `<dlc_dir>/<song>.sloppak` | Transient — present only between Play and the next Play |
 
 Token and client_secret are **excluded** from diagnostics bundles.
 
 ## Limitations / known issues
 
-- **First Play is slow** — downloads the whole archive before the
-  WebSocket play handler runs. A 200 MB PSARC on 50 Mbps ≈ 30 s.
-- **No range-request streaming** — the PSARC reader doesn't support
-  partial reads, so we fetch whole archives. Block-level streaming
-  would require core changes to `lib/psarc.py`.
+- **First Play is slow** — downloads the whole file before the
+  WebSocket play handler runs. A 200 MB song on 50 Mbps ≈ 30 s.
+- **No range-request streaming** — we fetch whole files rather than
+  partial reads, so a large song downloads in full before it plays.
 - **Conflict resolution** — multi-device editing is last-write-wins.
   Editing the same file from two devices without restarting can clobber
   one side's changes when the watcher runs.
