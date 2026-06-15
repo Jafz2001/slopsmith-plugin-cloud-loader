@@ -36,7 +36,9 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 log = logging.getLogger("slopsmith.plugin.cloud_loader.drive")
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-EXTENSIONS = (".psarc", ".sloppak")
+# Sloppak-only: the cloud library indexes/streams Slopsmith's own .sloppak
+# song format (the app's converted, non-encrypted container).
+EXTENSIONS = (".sloppak",)
 
 
 class DriveClient:
@@ -261,7 +263,7 @@ class DriveClient:
 
     def iter_song_files(self, folder_id: str, recursive: bool = True,
                         drive_id: Optional[str] = None) -> Iterator[dict]:
-        """Yield {id, name, modifiedTime, size, parents} for every .psarc/.sloppak.
+        """Yield {id, name, modifiedTime, size, parents} for every .sloppak.
 
         Recursion is BFS over folders to avoid blowing the call stack on deep trees.
         drive_id is auto-detected if not provided — required for Shared Drives.

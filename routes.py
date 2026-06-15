@@ -82,7 +82,7 @@ def setup(app: FastAPI, context: dict) -> None:
 
     # Album art cache. Matches the server's ART_CACHE_DIR (server.py:235).
     # The server's /api/song/{X}/art endpoint checks this cache first for
-    # PSARCs — if a PNG exists here with the right name, it's served without
+    # Cached art — if a PNG exists here with the right name, it's served without
     # any disk read of the archive. We pre-populate during bootstrap so the
     # library browser shows thumbnails even though the files on disk are 0-byte
     # stubs. (sloppaks aren't cached here — the server reads cover.jpg from
@@ -136,42 +136,12 @@ def setup(app: FastAPI, context: dict) -> None:
             "year": row[3], "duration": row[4], "tuning": row[5],
             "arrangements": json.loads(row[6]) if row[6] else [],
             "has_lyrics": bool(row[7]),
-            "format": row[8] or "psarc",
+            "format": row[8] or "sloppak",
             "stem_count": int(row[9] or 0),
             "stem_ids": json.loads(row[10]) if row[10] else [],
             "tuning_name": row[11] or "",
             "tuning_sort_key": int(row[12] or 0),
         }
-
-    def _cache_psarc_art(filename: str, psarc_path: Path):
-        """Extract album art from a PSARC into the server's art_cache_dir.
-
-        Mirrors the extraction the server does on-demand in /api/song/<X>/art —
-        unpack PSARC → find largest .dds → PIL convert to PNG → save with the
-        same `safe_name` key the server uses. After this runs, art is served
-        from cache even though the PSARC on disk is a 0-byte stub.
-        """
-        if not filename.lower().endswith(".psarc"):
-            return  # sloppak/loose handled by the server reading source dir directly
-        safe_name = filename.replace("/", "_").replace(" ", "_")
-        cached = art_cache_dir / f"{safe_name}.png"
-        if cached.exists():
-            return
-        import tempfile
-        import shutil
-        from psarc import unpack_psarc
-        from PIL import Image
-        tmp = tempfile.mkdtemp(prefix="cl_art_")
-        try:
-            unpack_psarc(str(psarc_path), tmp)
-            dds_files = sorted(Path(tmp).rglob("*.dds"),
-                               key=lambda p: p.stat().st_size, reverse=True)
-            if dds_files:
-                Image.open(dds_files[0]).convert("RGB").save(str(cached), "PNG")
-        except Exception as e:
-            log.warning("art cache failed for %s: %s", filename, e)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
 
     def _stub_file(path: Path):
         """Truncate to 0 bytes and stamp mtime=0 (epoch).
@@ -334,15 +304,9 @@ def setup(app: FastAPI, context: dict) -> None:
 
         if remote_unchanged:
             sentinel_meta = meta_db.get(filename, 0.0, 0)
-            # For PSARCs, the album art lives in art_cache_dir alongside meta.
-            # If it's missing, the library browser shows the thumbnail blank —
-            # fall through to the download path so this scan refreshes it.
-            safe_name = filename.replace("/", "_").replace(" ", "_")
-            art_present = (
-                not filename.lower().endswith(".psarc")
-                or (art_cache_dir / f"{safe_name}.png").exists()
-            )
-            if sentinel_meta is not None and stub_path.exists() and art_present:
+            # .sloppak album art is served by the host from the source dir, so
+            # there's nothing per-file to refresh here.
+            if sentinel_meta is not None and stub_path.exists():
                 return True  # nothing to do
 
             meta_json_raw = existing_remote.get("meta_json")
@@ -373,10 +337,8 @@ def setup(app: FastAPI, context: dict) -> None:
             meta_db.put(filename, 0.0, 0, meta)
             cdb.put_remote(filename, entry["id"], entry["modifiedTime"],
                            entry["size"], json.dumps(meta))
-            # Cache album art BEFORE truncating to a stub — the server reads
-            # the cached PNG from disk forever after, even though the PSARC
-            # itself is empty.
-            _cache_psarc_art(filename, scratch_file)
+            # Album art for .sloppak is served by the host reading the source
+            # dir directly (cover.jpg) — no per-file extraction needed here.
             _stub_file(stub_path)
             log.info("indexed %s", filename)
         finally:
@@ -614,13 +576,9 @@ def setup(app: FastAPI, context: dict) -> None:
     def materialize(filename: str):
         """Download the real file into DLC and leave it there (no stub).
 
-        Used when an external plugin (RS1 Extractor, Base Game Extractor) needs
-        the actual PSARC on disk to read its contents. After the extractor runs,
-        the user is expected to either:
-          - delete the original from Drive (since it's now decomposed into
-            individual song PSARCs that the watcher will upload), OR
-          - call DELETE /local?filename=X to drop the local copy and let the
-            next Play re-download it.
+        Used when something needs the actual file on disk (not a 0-byte stub).
+        Afterwards, call DELETE /local?filename=X to drop the local copy and
+        let the next Play re-download it.
         """
         dlc = _get_cloud_dlc_dir()
         if not dlc:
@@ -675,7 +633,7 @@ def setup(app: FastAPI, context: dict) -> None:
         return {"running": False}
 
     # Sweep orphaned scratch files from a previous crashed scan. They're
-    # always empty (.part) or replaceable (.psarc that wasn't cleaned up
+    # always empty (.part) or replaceable (.sloppak that wasn't cleaned up
     # in a finally block) — bootstrap will re-fetch what it needs.
     scratch_dir = plugin_state_dir / "scratch"
     if scratch_dir.exists():

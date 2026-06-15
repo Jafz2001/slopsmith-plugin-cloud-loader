@@ -180,8 +180,8 @@
                         window.slopsmith.emit('cloud_loader:error', { filename, error: String(e) });
                     }
                     // BLOCK the play — calling the original would just feed a
-                    // 0-byte stub to the server's PSARC unpacker and produce
-                    // a confusing "no PSARC entries" error. Better: surface
+                    // 0-byte stub to the host song reader and produce
+                    // a confusing "no song data" error. Better: surface
                     // the real reason to the user and abort.
                     const reason = String(e).replace(/^Error:\s*/, '');
                     alert(
@@ -265,7 +265,7 @@
                         );
                         // Fake a server error response so the converter UI
                         // shows the failure inline instead of enqueueing a
-                        // job that would fail with "Not a PSARC file".
+                        // job that would fail to open the song.
                         return new Response(
                             JSON.stringify({ detail: 'cloud_loader prefetch failed: ' + reason }),
                             { status: 503, headers: { 'Content-Type': 'application/json' } }
