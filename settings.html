@@ -351,7 +351,15 @@
         try {
             const picked = await host.pickDirectory();
             const dir = Array.isArray(picked) ? picked[0] : picked;
-            if (dir) $('cl-dlc-dir').value = dir;  // click Save to persist
+            if (!dir) return;
+            $('cl-dlc-dir').value = dir;
+            // Persist immediately — otherwise the periodic refreshStatus()
+            // re-reads the saved (old) value and reverts the input.
+            await fetch(`${API}/config`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dlc_dir: dir }),
+            });
+            refreshStatus();
         } catch (e) {
             alert('Pick failed: ' + (e.message || e));
         }
